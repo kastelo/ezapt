@@ -2,7 +2,6 @@ package publish
 
 import (
 	"crypto"
-	"encoding/hex"
 	"fmt"
 	"io"
 
@@ -30,10 +29,8 @@ func newSigner(keychain io.Reader) (*signer, error) {
 		if err != nil {
 			return nil, err
 		}
-		switch key := pkt.(type) {
-		case *packet.PrivateKey:
+		if key, ok := pkt.(*packet.PrivateKey); ok {
 			if !key.IsSubkey && key.PublicKey.PublicKey != nil {
-				fmt.Println("private", hex.EncodeToString(key.PublicKey.Fingerprint[:]), key.IsSubkey)
 				s.keys = append(s.keys, key)
 			}
 		}
