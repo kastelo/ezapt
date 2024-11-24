@@ -2,6 +2,7 @@ package publish
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 )
 
@@ -13,11 +14,6 @@ type CLI struct {
 }
 
 func (c *CLI) Run() error {
-	keyring, err := filepath.Abs(c.Keyring)
-	if err != nil {
-		return fmt.Errorf("publish: %w", err)
-	}
-
 	pkgs, err := scanPackages(c.Dists)
 	if err != nil {
 		return fmt.Errorf("publish: %w", err)
@@ -33,11 +29,21 @@ func (c *CLI) Run() error {
 		return fmt.Errorf("publish: globbing: %w", err)
 	}
 
+	fd, err := os.Open(c.Keyring)
+	if err != nil {
+		return fmt.Errorf("publish: %w", err)
+	}
+	sign, err := newSigner(fd)
+	fd.Close()
+	if err != nil {
+		return fmt.Errorf("publish: %w", err)
+	}
+
 	for _, dist := range dists {
 		if err := writeRelease(dist); err != nil {
 			return fmt.Errorf("publish: %w", err)
 		}
-		if err := signRelease(dist, keyring, c.SignUser); err != nil {
+		if err := signRelease(dist, sign); err != nil {
 			return fmt.Errorf("publish: %w", err)
 		}
 	}

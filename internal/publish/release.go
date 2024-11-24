@@ -2,11 +2,9 @@ package publish
 
 import (
 	"compress/gzip"
-	"fmt"
 	"io"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -145,43 +143,44 @@ func writeRelease(dist string) error {
 	return nil
 }
 
-func signRelease(dist, keyring string, users []string) error {
-	opts := []string{
-		"-o", filepath.Join(dist, "InRelease"),
-		"--yes",
-		"--no-default-keyring",
-		"--keyring", keyring,
+func signRelease(dist string, s *signer) error {
+	in, err := os.Open(filepath.Join(dist, "Release"))
+	if err != nil {
+		return err
 	}
-	for _, user := range users {
-		opts = append(opts, "-u", user)
+	defer in.Close()
+
+	out, err := os.Create(filepath.Join(dist, "Release.gpg"))
+	if err != nil {
+		return err
 	}
-	opts = append(opts, "--clear-sign", filepath.Join(dist, "Release"))
-	if bs, err := exec.Command("gpg", opts...).CombinedOutput(); err != nil {
-		return fmt.Errorf("Failed to sign release: %s", bs)
+	if err := s.DetachSign(in, out); err != nil {
+		return err
 	}
-	if err := compress(filepath.Join(dist, "InRelease")); err != nil {
+	if err := out.Close(); err != nil {
+		return err
+	}
+	if err := compress(out.Name()); err != nil {
 		return err
 	}
 
-	opts = []string{
-		"-o", filepath.Join(dist, "Release.gpg"),
-		"-a",
-		"--yes",
-		"--no-default-keyring",
-		"--keyring", keyring,
-	}
-	for _, user := range users {
-		opts = append(opts, "-u", user)
-	}
-	opts = append(opts, "--detach-sign", filepath.Join(dist, "Release"))
-
-	if bs, err := exec.Command("gpg", opts...).CombinedOutput(); err != nil {
-		return fmt.Errorf("Failed to sign release: %s", bs)
-	}
-	if err := compress(filepath.Join(dist, "Release.gpg")); err != nil {
+	if _, err := in.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
 
+	out, err = os.Create(filepath.Join(dist, "InRelease"))
+	if err != nil {
+		return err
+	}
+	if err := s.ClearSign(in, out); err != nil {
+		return err
+	}
+	if err := out.Close(); err != nil {
+		return err
+	}
+	if err := compress(out.Name()); err != nil {
+		return err
+	}
 	return nil
 }
 
