@@ -1,3 +1,4 @@
+defaultBaseImage: gcr.io/distroless/static-debian12:latest
 defaultPlatforms:
 - linux/arm64
 - linux/amd64
