@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.1](https://github.com/kastelo/ezapt/compare/v1.0.0...v1.0.1) (2024-11-24)
+
+
+### Bug Fixes
+
+* properly exit with code 1 on error ([68f9013](https://github.com/kastelo/ezapt/commit/68f90135c4d0bbf43e3dad0b8521768427839d25))
+* use base image that allows running as root ([6594991](https://github.com/kastelo/ezapt/commit/6594991de665280947979ff6c51d277a0b07b5c2))
+* use rename instead of link when adding ([2f8fb8c](https://github.com/kastelo/ezapt/commit/2f8fb8c2b88821a3a0c98d00de4c31daf829d23c))
+
 ## 1.0.0 (2024-11-24)
 
 
