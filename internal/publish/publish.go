@@ -1,7 +1,6 @@
 package publish
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -92,9 +91,7 @@ func (c *CLI) add() error {
 		if err := os.MkdirAll(filepath.Dir(newPath), 0o700); err != nil {
 			return err
 		}
-		if err := os.Link(path, newPath); errors.Is(err, os.ErrExist) {
-			// never mind
-		} else if err != nil {
+		if err := os.Rename(path, newPath); err != nil {
 			return err
 		}
 		return nil
