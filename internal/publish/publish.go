@@ -6,9 +6,9 @@ import (
 )
 
 type CLI struct {
-	Dists        string `arg:"" required:"" help:"Path to dists directory" type:"existingdir"`
-	Keyring      string `required:"" help:"Path to GPG keyring" type:"existingfile"`
-	KeepVersions int    `help:"Number of versions to keep" default:"2"`
+	Dists        string `arg:"" required:"" help:"Path to dists directory" type:"existingdir" env:"EZAPT_DISTS"`
+	Keyring      string `required:"" help:"Path to GPG keyring" type:"existingfile" env:"EZAPT_KEYRING"`
+	KeepVersions int    `help:"Number of versions to keep" default:"2" env:"EZAPT_KEEP_VERSIONS"`
 }
 
 func (c *CLI) Run() error {
