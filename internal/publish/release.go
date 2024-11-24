@@ -145,28 +145,37 @@ func writeRelease(dist string) error {
 	return nil
 }
 
-func signRelease(dist string) error {
-	if bs, err := exec.Command("gpg",
+func signRelease(dist, keyring string, users []string) error {
+	opts := []string{
 		"-o", filepath.Join(dist, "InRelease"),
 		"--yes",
 		"--no-default-keyring",
-		"--keyring", "/Users/jb/src/kastelo/ezapt/ring.gpg",
-		"--clear-sign", filepath.Join(dist, "Release"),
-	).CombinedOutput(); err != nil {
+		"--keyring", keyring,
+	}
+	for _, user := range users {
+		opts = append(opts, "-u", user)
+	}
+	opts = append(opts, "--clear-sign", filepath.Join(dist, "Release"))
+	if bs, err := exec.Command("gpg", opts...).CombinedOutput(); err != nil {
 		return fmt.Errorf("Failed to sign release: %s", bs)
 	}
 	if err := compress(filepath.Join(dist, "InRelease")); err != nil {
 		return err
 	}
 
-	if bs, err := exec.Command("gpg",
+	opts = []string{
 		"-o", filepath.Join(dist, "Release.gpg"),
 		"-a",
 		"--yes",
 		"--no-default-keyring",
-		"--keyring", "/Users/jb/src/kastelo/ezapt/ring.gpg",
-		"--detach-sign", filepath.Join(dist, "Release"),
-	).CombinedOutput(); err != nil {
+		"--keyring", keyring,
+	}
+	for _, user := range users {
+		opts = append(opts, "-u", user)
+	}
+	opts = append(opts, "--detach-sign", filepath.Join(dist, "Release"))
+
+	if bs, err := exec.Command("gpg", opts...).CombinedOutput(); err != nil {
 		return fmt.Errorf("Failed to sign release: %s", bs)
 	}
 	if err := compress(filepath.Join(dist, "Release.gpg")); err != nil {
