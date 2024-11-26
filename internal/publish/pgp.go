@@ -2,38 +2,33 @@ package publish
 
 import (
 	"crypto"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 
-	_ "crypto/sha256"
-
-	_ "golang.org/x/crypto/ripemd160"
-
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/clearsign"
-	"golang.org/x/crypto/openpgp/packet"
+	"github.com/ProtonMail/go-crypto/openpgp/clearsign"
+	"github.com/ProtonMail/go-crypto/openpgp/packet"
+	openpgp "github.com/ProtonMail/go-crypto/openpgp/v2"
 )
 
 type signer struct {
-	keys []*packet.PrivateKey
+	entities []*openpgp.Entity
 }
 
 func newSigner(keychain io.Reader) (*signer, error) {
 	pr := packet.NewReader(keychain)
 	s := &signer{}
 	for {
-		pkt, err := pr.Next()
+		ent, err := openpgp.ReadEntity(pr)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return nil, err
 		}
-		if key, ok := pkt.(*packet.PrivateKey); ok {
-			if !key.IsSubkey && key.PublicKey.PublicKey != nil {
-				s.keys = append(s.keys, key)
-			}
-		}
+		slog.Info("Loaded key", "fingerprint", hex.EncodeToString(ent.PrimaryKey.Fingerprint))
+		s.entities = append(s.entities, ent)
 	}
 	return s, nil
 }
@@ -44,30 +39,28 @@ type seekable interface {
 }
 
 func (s *signer) DetachSign(in seekable, out io.Writer) error {
-	if len(s.keys) == 0 {
-		return fmt.Errorf("no private keys found")
+	if len(s.entities) == 0 {
+		return fmt.Errorf("no entities")
 	}
 	cfg := &packet.Config{
 		DefaultHash: crypto.SHA256,
 	}
-	for _, key := range s.keys {
-		if _, err := in.Seek(0, io.SeekStart); err != nil {
-			return err
-		}
-		signer := &openpgp.Entity{PrivateKey: key}
-		if err := openpgp.DetachSign(out, signer, in, cfg); err != nil {
-			return err
-		}
+	if err := openpgp.DetachSign(out, s.entities, in, cfg); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (s *signer) ClearSign(in seekable, out io.Writer) error {
-	if len(s.keys) == 0 {
-		return fmt.Errorf("no private keys found")
+	if len(s.entities) == 0 {
+		return fmt.Errorf("no entities")
 	}
 
-	w, err := clearsign.EncodeMulti(out, s.keys, nil)
+	keys := make([]*packet.PrivateKey, len(s.entities))
+	for i, e := range s.entities {
+		keys[i] = e.PrivateKey
+	}
+	w, err := clearsign.EncodeMulti(out, keys, nil)
 	if err != nil {
 		return err
 	}
