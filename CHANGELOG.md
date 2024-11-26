@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/kastelo/ezapt/compare/v1.0.1...v1.0.2) (2024-11-26)
+
+
+### Bug Fixes
+
+* use updated OpenPGP implementation ([16ef709](https://github.com/kastelo/ezapt/commit/16ef70953bb3e4c9992ca17e46fdf26f7190ec25))
+
 ## [1.0.1](https://github.com/kastelo/ezapt/compare/v1.0.0...v1.0.1) (2024-11-24)
 
 
