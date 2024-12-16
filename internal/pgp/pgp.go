@@ -38,17 +38,17 @@ type Seekable interface {
 	io.Seeker
 }
 
-func (s *Signer) DetachSign(in Seekable, out io.Writer) error {
+func (s *Signer) DetachSign(in Seekable, out io.Writer, asciiArmour bool) error {
 	if len(s.entities) == 0 {
 		return fmt.Errorf("no entities")
 	}
 	cfg := &packet.Config{
 		DefaultHash: crypto.SHA256,
 	}
-	if err := openpgp.DetachSign(out, s.entities, in, cfg); err != nil {
-		return err
+	if asciiArmour {
+		return openpgp.ArmoredDetachSign(out, s.entities, in, &openpgp.SignParams{Config: cfg})
 	}
-	return nil
+	return openpgp.DetachSign(out, s.entities, in, cfg)
 }
 
 func (s *Signer) ClearSign(in Seekable, out io.Writer) error {

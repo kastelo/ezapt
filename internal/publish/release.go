@@ -156,7 +156,7 @@ func signRelease(dist string, s *pgp.Signer) error {
 	if err != nil {
 		return err
 	}
-	if err := s.DetachSign(in, out); err != nil {
+	if err := s.DetachSign(in, out, false); err != nil {
 		return err
 	}
 	if err := out.Close(); err != nil {

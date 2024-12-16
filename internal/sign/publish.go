@@ -10,6 +10,8 @@ import (
 type CLI struct {
 	Files []string `arg:"" help:"Files to sign" type:"existingfile" env:"EZAPT_FILES"`
 	pgp.CLI
+	Detach bool `help:"Detach signature" env:"EZAPT_DETACH"`
+	ASCII  bool `help:"ASCII armor" env:"EZAPT_ASCII"`
 }
 
 func (c *CLI) Run() error {
@@ -28,7 +30,12 @@ func (c *CLI) Run() error {
 		if err != nil {
 			return fmt.Errorf("create: %w", err)
 		}
-		if err := sign.ClearSign(in, out); err != nil {
+		if c.Detach {
+			err = sign.DetachSign(in, out, c.ASCII)
+		} else {
+			err = sign.ClearSign(in, out)
+		}
+		if err != nil {
 			return fmt.Errorf("sign: %w", err)
 		}
 		if err := out.Close(); err != nil {
