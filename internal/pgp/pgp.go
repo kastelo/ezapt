@@ -1,4 +1,4 @@
-package publish
+package pgp
 
 import (
 	"crypto"
@@ -12,13 +12,13 @@ import (
 	openpgp "github.com/ProtonMail/go-crypto/openpgp/v2"
 )
 
-type signer struct {
+type Signer struct {
 	entities []*openpgp.Entity
 }
 
-func newSigner(keychain io.Reader) (*signer, error) {
+func NewSigner(keychain io.Reader) (*Signer, error) {
 	pr := packet.NewReader(keychain)
-	s := &signer{}
+	s := &Signer{}
 	for {
 		ent, err := openpgp.ReadEntity(pr)
 		if err == io.EOF {
@@ -33,12 +33,12 @@ func newSigner(keychain io.Reader) (*signer, error) {
 	return s, nil
 }
 
-type seekable interface {
+type Seekable interface {
 	io.Reader
 	io.Seeker
 }
 
-func (s *signer) DetachSign(in seekable, out io.Writer) error {
+func (s *Signer) DetachSign(in Seekable, out io.Writer) error {
 	if len(s.entities) == 0 {
 		return fmt.Errorf("no entities")
 	}
@@ -51,7 +51,7 @@ func (s *signer) DetachSign(in seekable, out io.Writer) error {
 	return nil
 }
 
-func (s *signer) ClearSign(in seekable, out io.Writer) error {
+func (s *Signer) ClearSign(in Seekable, out io.Writer) error {
 	if len(s.entities) == 0 {
 		return fmt.Errorf("no entities")
 	}

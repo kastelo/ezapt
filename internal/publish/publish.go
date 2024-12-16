@@ -6,14 +6,15 @@ import (
 	"os"
 	"path/filepath"
 
+	"kastelo.dev/ezapt/internal/pgp"
 	"pault.ag/go/debian/deb"
 )
 
 type CLI struct {
 	Dists        string `required:"" help:"Path to dists directory" type:"existingdir" env:"EZAPT_DISTS"`
 	KeepVersions int    `help:"Number of versions to keep" default:"2" env:"EZAPT_KEEP_VERSIONS"`
-	Keyring      string `required:"" help:"Path to GPG keyring" type:"existingfile" env:"EZAPT_KEYRING"`
 	Add          string `help:"Path to packages to add" type:"existingdir" env:"EZAPT_ADD"`
+	pgp.CLI
 }
 
 func (c *CLI) Run() error {
@@ -38,12 +39,7 @@ func (c *CLI) Run() error {
 		return fmt.Errorf("publish: globbing: %w", err)
 	}
 
-	fd, err := os.Open(c.Keyring)
-	if err != nil {
-		return fmt.Errorf("publish: %w", err)
-	}
-	sign, err := newSigner(fd)
-	fd.Close()
+	sign, err := c.Signer()
 	if err != nil {
 		return fmt.Errorf("publish: %w", err)
 	}

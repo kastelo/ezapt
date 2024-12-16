@@ -10,6 +10,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"kastelo.dev/ezapt/internal/pgp"
 )
 
 type release struct {
@@ -143,7 +145,7 @@ func writeRelease(dist string) error {
 	return nil
 }
 
-func signRelease(dist string, s *signer) error {
+func signRelease(dist string, s *pgp.Signer) error {
 	in, err := os.Open(filepath.Join(dist, "Release"))
 	if err != nil {
 		return err
