@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/kastelo/ezapt/compare/v1.0.2...v1.1.0) (2024-12-16)
+
+
+### Features
+
+* separate sign command, keyring from env ([20ac295](https://github.com/kastelo/ezapt/commit/20ac295cb39b8cde1517e70b530e1915e67f1b1c))
+* sign --detach --ascii ([6cbd3cc](https://github.com/kastelo/ezapt/commit/6cbd3cc219008a2aa2500cf8deadd159c2b8e888))
+
 ## [1.0.2](https://github.com/kastelo/ezapt/compare/v1.0.1...v1.0.2) (2024-11-26)
 
 
