@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/kastelo/ezapt/compare/v1.1.0...v1.1.1) (2025-01-06)
+
+
+### Bug Fixes
+
+* add ending newlines to clear/detached signatures ([2cd886a](https://github.com/kastelo/ezapt/commit/2cd886a75c9508d3486ece5a999fca91f4671f35))
+
 ## [1.1.0](https://github.com/kastelo/ezapt/compare/v1.0.2...v1.1.0) (2024-12-16)
 
 
