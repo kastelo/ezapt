@@ -12,6 +12,8 @@ import (
 	openpgp "github.com/ProtonMail/go-crypto/openpgp/v2"
 )
 
+var newline = []byte{'\n'}
+
 type Signer struct {
 	entities []*openpgp.Entity
 }
@@ -48,7 +50,11 @@ func (s *Signer) DetachSign(in Seekable, out io.Writer, asciiArmour bool) error 
 	if asciiArmour {
 		return openpgp.ArmoredDetachSign(out, s.entities, in, &openpgp.SignParams{Config: cfg})
 	}
-	return openpgp.DetachSign(out, s.entities, in, cfg)
+	if err := openpgp.DetachSign(out, s.entities, in, cfg); err != nil {
+		return err
+	}
+	_, err := out.Write(newline)
+	return err
 }
 
 func (s *Signer) ClearSign(in Seekable, out io.Writer) error {
@@ -65,6 +71,9 @@ func (s *Signer) ClearSign(in Seekable, out io.Writer) error {
 		return err
 	}
 	if _, err := io.Copy(w, in); err != nil {
+		return err
+	}
+	if _, err := w.Write(newline); err != nil {
 		return err
 	}
 	return w.Close()
