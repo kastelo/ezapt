@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.0.0](https://github.com/kastelo/ezapt/compare/v1.1.0...v2.0.0) (2025-08-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* use config file, pool directory
+
+### Features
+
+* use config file, pool directory ([17605ab](https://github.com/kastelo/ezapt/commit/17605ab5dc7890d97bb3b58ff289c2379ee59485))
+
+
+### Bug Fixes
+
+* add ending newlines to clear/detached signatures ([2cd886a](https://github.com/kastelo/ezapt/commit/2cd886a75c9508d3486ece5a999fca91f4671f35))
+* keep codename debian to avoid warning ([112b03f](https://github.com/kastelo/ezapt/commit/112b03f18c653863d0e1d73541895979bff9a651))
+
 ## [1.1.0](https://github.com/kastelo/ezapt/compare/v1.0.2...v1.1.0) (2024-12-16)
 
 
