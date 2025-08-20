@@ -5,38 +5,26 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 
+	yaml "go.yaml.in/yaml/v4"
 	"kastelo.dev/ezapt/internal/pgp"
-	"pault.ag/go/debian/deb"
 )
 
 type CLI struct {
-	Dists        string `required:"" help:"Path to dists directory" type:"existingdir" env:"EZAPT_DISTS"`
-	KeepVersions int    `help:"Number of versions to keep" default:"2" env:"EZAPT_KEEP_VERSIONS"`
-	Add          string `help:"Path to packages to add" type:"existingdir" env:"EZAPT_ADD"`
+	Root string `required:"" help:"Path to root directory" type:"existingdir" env:"EZAPT_ROOT"`
 	pgp.CLI
 }
 
 func (c *CLI) Run() error {
-	if c.Add != "" {
-		if err := c.add(); err != nil {
-			return fmt.Errorf("add: %w", err)
-		}
-	}
-
-	pkgs, err := scanPackages(c.Dists)
+	cfgBs, err := os.ReadFile(filepath.Join(c.Root, "ezapt.yaml"))
 	if err != nil {
-		return fmt.Errorf("publish: %w", err)
+		return err
 	}
-	trimPackages(c.Dists, pkgs, c.KeepVersions)
-
-	if err := writePackages(c.Dists, pkgs); err != nil {
-		return fmt.Errorf("publish: %w", err)
-	}
-
-	dists, err := filepath.Glob(filepath.Join(c.Dists, "*"))
-	if err != nil {
-		return fmt.Errorf("publish: globbing: %w", err)
+	var cfg Config
+	if err := yaml.Unmarshal(cfgBs, &cfg); err != nil {
+		return err
 	}
 
 	sign, err := c.Signer()
@@ -44,52 +32,76 @@ func (c *CLI) Run() error {
 		return fmt.Errorf("publish: %w", err)
 	}
 
-	for _, dist := range dists {
-		if err := writeRelease(dist); err != nil {
-			return fmt.Errorf("publish: %w", err)
+	pkgs, err := scanPackages(c.Root, filepath.Join(c.Root, cfg.PoolDir))
+	if err != nil {
+		return fmt.Errorf("publish: %w", err)
+	}
+
+	for _, dist := range cfg.Distributions {
+		if err := c.processDistribution(cfg, dist, pkgs, sign); err != nil {
+			return err
 		}
-		if err := signRelease(dist, sign); err != nil {
-			return fmt.Errorf("publish: %w", err)
+	}
+
+	for _, pkg := range pkgs {
+		if pkg.kept == 0 {
+			slog.Info("Deleting unkept package", "file", pkg.Filename)
+			os.Remove(filepath.Join(c.Root, pkg.Filename))
 		}
 	}
 
 	return nil
 }
 
-func (c *CLI) add() error {
-	return filepath.Walk(c.Add, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-		if filepath.Ext(path) != ".deb" {
-			return nil
-		}
+func (c *CLI) processDistribution(cfg Config, dist ConfigDistribution, pkgs []*packageFile, sign *pgp.Signer) error {
+	distDir := filepath.Join(c.Root, cfg.DistsDir, dist.Name)
+	slog.Info("Processing distribution", "name", dist.Name, "path", distDir)
 
-		deb, cl, err := deb.LoadFile(path)
-		if err != nil {
-			return err
-		}
-		defer cl()
+	if err := os.MkdirAll(distDir, 0o755); err != nil {
+		return err
+	}
 
-		// If we have foo/syncthing/candidate/whatever.deb, grab the
-		// syncthing/candidate part
-		repoPath, err := filepath.Rel(c.Add, path)
-		if err != nil {
+	for _, comp := range dist.Components {
+		if err := c.processComponent(comp, pkgs, distDir); err != nil {
 			return err
 		}
-		repoPath = filepath.Dir(repoPath)
+	}
 
-		newPath := filepath.Join(c.Dists, repoPath, "binary-"+deb.Control.Architecture.String(), filepath.Base(path))
-		slog.Info("Adding package", "package", deb.Control.Package, "version", deb.Control.Version, "architecture", deb.Control.Architecture, "to", newPath)
-		if err := os.MkdirAll(filepath.Dir(newPath), 0o700); err != nil {
-			return err
+	if err := writeRelease(distDir); err != nil {
+		return fmt.Errorf("publish: %w", err)
+	}
+	if err := signRelease(distDir, sign); err != nil {
+		return fmt.Errorf("publish: %w", err)
+	}
+	return nil
+}
+
+func (*CLI) processComponent(comp ConfigComponent, pkgs []*packageFile, distDir string) error {
+	filteredPkgs, err := filterPackages(comp, pkgs)
+	if err != nil {
+		return err
+	}
+
+	compDir := filepath.Join(distDir, comp.Name)
+	slog.Info("Processing component", "name", comp.Name, "path", compDir, "pkgs", len(filteredPkgs))
+	if err := writePackages(compDir, filteredPkgs, comp.KeepVersions); err != nil {
+		return fmt.Errorf("publish: %w", err)
+	}
+	return nil
+}
+
+func filterPackages(comp ConfigComponent, pkgs []*packageFile) ([]*packageFile, error) {
+	var filteredPkgs []*packageFile
+	for _, pat := range comp.FilePatterns {
+		patExp, err := regexp.Compile(pat)
+		if err != nil {
+			return nil, err
 		}
-		if err := os.Rename(path, newPath); err != nil {
-			return err
+		for _, pkg := range pkgs {
+			if patExp.MatchString(pkg.Filename) && !slices.Contains(filteredPkgs, pkg) {
+				filteredPkgs = append(filteredPkgs, pkg)
+			}
 		}
-		return nil
-	})
+	}
+	return filteredPkgs, nil
 }

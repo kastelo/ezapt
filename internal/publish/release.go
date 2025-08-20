@@ -15,6 +15,7 @@ import (
 )
 
 type release struct {
+	Codename      string
 	Description   string
 	Label         string
 	Origin        string
@@ -29,6 +30,7 @@ func newRelease() *release {
 	return &release{
 		Date:        time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 MST"),
 		Files:       make(map[string]*hashes),
+		Codename:    "syncthing",
 		Description: "Syncthing",
 		Label:       "Syncthing",
 		Origin:      "Syncthing",
@@ -59,7 +61,7 @@ func (r *release) MarshalTo(w io.Writer) error {
 }
 
 var releaseTemplate = template.Must(template.New("release").Parse(`Architectures: {{range .Architectures}}{{.}} {{end}}
-Codename: debian
+Codename: {{.Codename}}
 Components: {{range .Components}}{{.}} {{end}}
 Date: {{.Date}}
 Description: {{.Description}}

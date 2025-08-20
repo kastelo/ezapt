@@ -1,0 +1,32 @@
+distsDir: dists
+poolDir: pool
+repos:
+
+  - name: syncthing/stable
+    filePatterns:
+      - _1\.[0-9\.]+_
+    keepVersions: 2
+
+  - name: syncthing/stable-v1
+    filePatterns:
+      - _1\.[0-9\.]+_
+    keepVersions: 2
+
+  - name: syncthing/stable-v2
+    filePatterns:
+      - _2\.[0-9\.]+_
+    keepVersions: 2
+
+  - name: syncthing/candidate
+    filePatterns:
+      - syncthing_[0-9\.]+_
+      - syncthing_[0-9\.]+~rc
+    keepVersions: 3
+
+  - name: syncthing/nightly
+    filePatterns:
+      - syncthing_[0-9\.]+_
+      - syncthing_[0-9\.]+~rc
+      - syncthing_[0-9\.]+~dev
+    keepVersions: 3
+

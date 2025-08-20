@@ -49,6 +49,7 @@ type packageFile struct {
 	Filename string
 	*deb.Control
 	*hashes
+	kept int
 }
 
 func (p *packageFile) MarshalTo(w io.Writer) error {
@@ -76,85 +77,54 @@ Vendor: {{.Maintainer}}
 
 `))
 
-func scanPackages(repo string) (map[string][]*packageFile, error) {
-	// directory -> set of packages
-	packages := make(map[string][]*packageFile)
+func scanPackages(root, repo string) ([]*packageFile, error) {
+	var packages []*packageFile
 
-	parent := filepath.Dir(repo)
-	err := filepath.Walk(repo, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		relPath, err := filepath.Rel(parent, path)
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-		if filepath.Ext(path) != ".deb" {
-			return nil
-		}
-
-		slog.Info("Scanning package", "path", relPath)
-		pkg, err := newPackage(path)
-		if err != nil {
-			return err
-		}
-		pkg.Filename = relPath
-		packagesDir := filepath.Dir(path)
-		packages[packagesDir] = append(packages[packagesDir], pkg)
-		return nil
-	})
+	files, err := filepath.Glob(filepath.Join(repo, "*.deb"))
 	if err != nil {
-		return nil, fmt.Errorf("scanning packages: %w", err)
+		return nil, err
 	}
+
+	for _, file := range files {
+		info, err := os.Lstat(file)
+		if err != nil {
+			return nil, err
+		}
+		if info.IsDir() {
+			continue
+		}
+
+		slog.Info("Scanning package", "path", file)
+		pkg, err := newPackage(file)
+		if err != nil {
+			continue
+		}
+		pkg.Filename, _ = filepath.Rel(root, file)
+		packages = append(packages, pkg)
+	}
+
 	return packages, nil
 }
 
-func trimPackages(repo string, packages map[string][]*packageFile, keepVersions int) {
-	parent := filepath.Dir(repo)
-	for dir, pkgs := range packages {
-		perPkg := make(map[string][]*packageFile)
-		for _, pkg := range pkgs {
-			perPkg[pkg.Package] = append(perPkg[pkg.Package], pkg)
+func writePackages(repo string, pkgs []*packageFile, keep int) error {
+	slices.SortFunc(pkgs, func(a, b *packageFile) int {
+		if r := cmp.Compare(a.Package, b.Package); r != 0 {
+			return r
 		}
-		packages[dir] = nil
-		for _, pkgs := range perPkg {
-			slices.SortFunc(pkgs, func(a, b *packageFile) int {
-				return compareVersions(a.Version, b.Version)
-			})
-			if len(pkgs) > keepVersions {
-				for _, pkg := range pkgs[keepVersions:] {
-					slog.Info("Removing package", "package", pkg.Package, "version", pkg.Version)
-					if err := os.Remove(filepath.Join(parent, pkg.Filename)); err != nil {
-						slog.Error("Failed to remove package", "package", pkg.Package, "version", pkg.Version, "error", err)
-					}
-				}
-				pkgs = pkgs[:keepVersions]
-			}
-			packages[dir] = append(packages[dir], pkgs...)
-		}
-	}
-}
+		return compareVersions(a.Version, b.Version)
+	})
 
-func writePackages(repo string, packages map[string][]*packageFile) error {
-	parent := filepath.Dir(repo)
-	for dir, pkgs := range packages {
-		relPath, err := filepath.Rel(parent, dir)
-		if err != nil {
+	perArch := make(map[string][]*packageFile)
+	for _, pkg := range pkgs {
+		arch := pkg.Architecture.String()
+		perArch[arch] = append(perArch[arch], pkg)
+	}
+
+	for arch, pkgs := range perArch {
+		dir := filepath.Join(repo, "binary-"+arch)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return err
 		}
-		slog.Info("Writing packages", "dir", relPath)
-
-		slices.SortFunc(pkgs, func(a, b *packageFile) int {
-			if r := cmp.Compare(a.Package, b.Package); r != 0 {
-				return r
-			}
-			return compareVersions(a.Version, b.Version)
-		})
-
 		pkgFile, err := os.Create(filepath.Join(dir, "Packages"))
 		if err != nil {
 			return err
@@ -168,7 +138,19 @@ func writePackages(repo string, packages map[string][]*packageFile) error {
 		gw := gzip.NewWriter(pkgGzFile)
 		mw := io.MultiWriter(pkgFile, gw)
 
+		var prevPkg string
+		count := 0
 		for _, pkg := range pkgs {
+			if pkg.Package != prevPkg {
+				pkg.kept++
+				prevPkg = pkg.Package
+				count = 1
+			} else if count < keep {
+				pkg.kept++
+				count++
+			} else {
+				continue
+			}
 			if err := pkg.MarshalTo(mw); err != nil {
 				return err
 			}
