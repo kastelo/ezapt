@@ -30,7 +30,7 @@ func newRelease() *release {
 	return &release{
 		Date:        time.Now().UTC().Format("Mon, 02 Jan 2006 15:04:05 MST"),
 		Files:       make(map[string]*hashes),
-		Codename:    "syncthing",
+		Codename:    "debian",
 		Description: "Syncthing",
 		Label:       "Syncthing",
 		Origin:      "Syncthing",
